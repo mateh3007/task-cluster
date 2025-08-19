@@ -1,0 +1,133 @@
+services:
+  postgres-master:
+    image: bitnami/postgresql:16
+    container_name: postgres-master
+    restart: always
+    environment:
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_pass
+      POSTGRESQL_USERNAME: app_user
+      POSTGRESQL_PASSWORD: app_pass
+      POSTGRESQL_DATABASE: app_db
+      POSTGRESQL_POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_master_data:/bitnami/postgresql
+    networks:
+      - app-network
+
+  postgres-replica-1:
+    image: bitnami/postgresql:16
+    container_name: postgres-replica-1
+    restart: always
+    depends_on:
+      - postgres-master
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_pass
+      POSTGRESQL_MASTER_HOST: postgres-master
+      POSTGRESQL_MASTER_PORT_NUMBER: 5432
+      POSTGRESQL_PASSWORD: app_pass
+      POSTGRESQL_USERNAME: app_user
+      POSTGRESQL_DATABASE: app_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_replica1_data:/bitnami/postgresql
+    networks:
+      - app-network
+
+  postgres-replica-2:
+    image: bitnami/postgresql:16
+    container_name: postgres-replica-2
+    restart: always
+    depends_on:
+      - postgres-master
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_pass
+      POSTGRESQL_MASTER_HOST: postgres-master
+      POSTGRESQL_MASTER_PORT_NUMBER: 5432
+      POSTGRESQL_PASSWORD: app_pass
+      POSTGRESQL_USERNAME: app_user
+      POSTGRESQL_DATABASE: app_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_replica2_data:/bitnami/postgresql
+    networks:
+      - app-network
+
+  postgres-replica-3:
+    image: bitnami/postgresql:16
+    container_name: postgres-replica-3
+    restart: always
+    depends_on:
+      - postgres-master
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_pass
+      POSTGRESQL_MASTER_HOST: postgres-master
+      POSTGRESQL_MASTER_PORT_NUMBER: 5432
+      POSTGRESQL_PASSWORD: app_pass
+      POSTGRESQL_USERNAME: app_user
+      POSTGRESQL_DATABASE: app_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_replica3_data:/bitnami/postgresql
+    networks:
+      - app-network
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task-cluster-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_MASTER: postgres-master
+      DATABASE_REPLICA_1: postgres-replica-1
+      DATABASE_REPLICA_2: postgres-replica-2
+      DATABASE_REPLICA_3: postgres-replica-3
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres-master
+      - postgres-replica-1
+      - postgres-replica-2
+      - postgres-replica-3
+      - redis
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_master_data:
+  postgres_replica1_data:
+  postgres_replica2_data:
+  postgres_replica3_data:
+  redis_data:
