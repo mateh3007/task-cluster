@@ -106,10 +106,17 @@ services:
     volumes:
       - .:/app
     environment:
-      DATABASE_MASTER: postgres-master
-      DATABASE_REPLICA_1: postgres-replica-1
-      DATABASE_REPLICA_2: postgres-replica-2
-      DATABASE_REPLICA_3: postgres-replica-3
+      # Credenciais comuns
+      DB_USERNAME: app_user
+      DB_PASSWORD: app_pass
+      DB_NAME: app_db
+      DB_PORT: 5432
+      # Hosts específicos
+      DB_MASTER_HOST: postgres-master
+      DB_REPLICA_1_HOST: postgres-replica-1
+      DB_REPLICA_2_HOST: postgres-replica-2
+      DB_REPLICA_3_HOST: postgres-replica-3
+      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
