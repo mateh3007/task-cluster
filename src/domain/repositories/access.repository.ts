@@ -1,6 +1,6 @@
 import { AccessEntity } from '@domain/entities/access.entity';
 
-export abstract class AccessRepository {
+export abstract class IAccessRepository {
   abstract findById(id: number): Promise<AccessEntity | void>;
   abstract findByEmailAndCompanyId(
     email: string,

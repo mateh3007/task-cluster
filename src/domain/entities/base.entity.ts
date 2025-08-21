@@ -3,5 +3,5 @@ export interface BaseEntity {
   uuid: string;
   createdAt: Date;
   updatedAt: Date;
-  deletedAt: Date;
+  deletedAt?: Date;
 }
