@@ -3,7 +3,7 @@ import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { TaskStatusEnum } from 'src/domain/enums/task-status.enum';
 
-@Entity()
+@Entity('tasks')
 export class Task extends BaseEntity {
   @ManyToOne(() => User, (user) => user.tasks)
   user: User;

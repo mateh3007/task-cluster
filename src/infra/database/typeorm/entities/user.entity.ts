@@ -5,7 +5,7 @@ import { RoleEnum } from 'src/domain/enums/role.enum';
 import { Access } from './access.entity';
 import { Task } from './task.entity';
 
-@Entity()
+@Entity('users')
 export class User extends BaseEntity {
   @ManyToOne(() => Company, (company) => company.users)
   company: Company;

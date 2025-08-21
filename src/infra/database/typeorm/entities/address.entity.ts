@@ -3,7 +3,7 @@ import { BaseEntity } from './base.entity';
 import { Company } from './company.entity';
 import { AddressableEnum } from 'src/domain/enums/addressable.enum';
 
-@Entity()
+@Entity('addresses')
 export class Address extends BaseEntity {
   @Column({ type: 'enum', enum: AddressableEnum })
   addressableType: AddressableEnum;
