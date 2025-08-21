@@ -6,6 +6,8 @@ import { CompanyRepository } from '@infra/database/typeorm/repositories/company.
 import { UserRepository } from '@infra/database/typeorm/repositories/user.repository';
 import { Module } from '@nestjs/common';
 import { TypeOrmProviderModule } from './typeorm/typeorm.module';
+import { ITaskRepository } from '@domain/repositories/task.repository';
+import { TaskRepository } from '@infra/database/typeorm/repositories/task.repository';
 
 @Module({
   imports: [TypeOrmProviderModule],
@@ -22,7 +24,16 @@ import { TypeOrmProviderModule } from './typeorm/typeorm.module';
       provide: IAccessRepository,
       useClass: AccessRepository,
     },
+    {
+      provide: ITaskRepository,
+      useClass: TaskRepository,
+    },
   ],
-  exports: [ICompanyRepository, IUserRepository, IAccessRepository],
+  exports: [
+    ICompanyRepository,
+    IUserRepository,
+    IAccessRepository,
+    ITaskRepository,
+  ],
 })
 export class DatabaseModule {}

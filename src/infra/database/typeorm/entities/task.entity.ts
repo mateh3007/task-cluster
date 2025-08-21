@@ -2,14 +2,21 @@ import { Entity, Column, ManyToOne } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { TaskStatusEnum } from 'src/domain/enums/task-status.enum';
+import { Company } from './company.entity';
 
 @Entity('tasks')
 export class Task extends BaseEntity {
   @ManyToOne(() => User, (user) => user.tasks)
   user: User;
 
+  @ManyToOne(() => Company, (company) => company.tasks)
+  company: Company;
+
   @Column()
-  userId: number;
+  ownerId: number;
+
+  @Column()
+  companyId: number;
 
   @Column()
   name: string;

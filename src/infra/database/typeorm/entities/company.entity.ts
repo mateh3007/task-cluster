@@ -3,6 +3,7 @@ import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Address } from './address.entity';
 import { Access } from './access.entity';
+import { Task } from './task.entity';
 
 @Entity('companies')
 @Unique(['domain', 'cnpj'])
@@ -27,6 +28,9 @@ export class Company extends BaseEntity {
 
   @OneToMany(() => User, (user) => user.company)
   users: User[];
+
+  @OneToMany(() => Task, (task) => task.company)
+  tasks: Task[];
 
   @OneToMany(() => Address, (address) => address.company)
   addresses: Address[];
