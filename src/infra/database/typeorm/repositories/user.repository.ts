@@ -4,6 +4,8 @@ import { User } from '../entities/user.entity';
 import { IUserRepository } from '@domain/repositories/user.repository';
 import { UserEntity } from '@domain/entities/user.entity';
 import { CreateUserParams } from '@domain/interfaces/user.interfaces';
+import { RoleEnum } from '@domain/enums/role.enum';
+import { Access } from '../entities/access.entity';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
@@ -14,9 +16,53 @@ export class UserRepository implements IUserRepository {
   }
 
   async createUser(params: CreateUserParams): Promise<UserEntity | void> {
-    const user = this.repo.create(params);
-    if (!user) return;
-    return await this.repo.save(user);
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const user = queryRunner.manager.create(User, {
+        name: params.name,
+        registration: params.registration,
+        phone: params.phone,
+        role: RoleEnum.EMPLOYEE,
+        password: params.password,
+        email: params.email,
+        companyId: params.companyId,
+      });
+      const savedUser = await queryRunner.manager.save(user);
+
+      const access = queryRunner.manager.create(Access, {
+        email: params.email,
+        password: params.password,
+        userId: savedUser.id,
+        companyId: params.companyId,
+      });
+      await queryRunner.manager.save(access);
+
+      await queryRunner.commitTransaction();
+      return {
+        id: savedUser.id,
+        uuid: savedUser.uuid,
+        name: savedUser.name,
+        registration: savedUser.registration,
+        phone: savedUser.phone,
+        role: RoleEnum.EMPLOYEE,
+        password: savedUser.password,
+        email: savedUser.email,
+        companyId: savedUser.companyId,
+        createdAt: savedUser.createdAt,
+        updatedAt: savedUser.updatedAt,
+        deletedAt: savedUser.deletedAt,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      console.error('Erro ao criar empresa e usuário:', error);
+      return;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async findById(id: number): Promise<UserEntity | void> {
