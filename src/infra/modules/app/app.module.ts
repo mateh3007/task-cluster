@@ -6,6 +6,7 @@ import { AppDataSource } from '@infra/database/typeorm/data-source';
 import { CompanyModule } from '../company/company.module';
 import { ExceptionsModule } from '../exceptions/exceptions.module';
 import { AuthenticationModule } from '../authentication/authentication.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthenticationModule } from '../authentication/authentication.module';
     DatabaseModule,
     AuthenticationModule,
     CompanyModule,
+    UserModule,
     ExceptionsModule,
   ],
   controllers: [],
