@@ -1,6 +1,6 @@
 import { TokenAdapter } from '@domain/adapters/token.adapter';
 import { UserEntity } from '@domain/entities/user.entity';
-import { UserRepository } from '@domain/repositories/user.repository';
+import { IUserRepository } from '@domain/repositories/user.repository';
 import { Injectable } from '@nestjs/common';
 
 interface AuthenticatedHeader extends Headers {
@@ -15,7 +15,7 @@ export interface AuthenticatedRequest extends Request {
 @Injectable()
 export class RouteAuthenticationUseCase {
   constructor(
-    private readonly userRepository: UserRepository,
+    private readonly userRepository: IUserRepository,
     private readonly tokenAdapter: TokenAdapter,
   ) {}
 
