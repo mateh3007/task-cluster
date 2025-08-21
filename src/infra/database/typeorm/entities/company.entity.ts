@@ -1,11 +1,15 @@
-import { Entity, Column, OneToMany } from 'typeorm';
+import { Entity, Column, OneToMany, Unique } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Address } from './address.entity';
 import { Access } from './access.entity';
 
-@Entity()
+@Entity('companies')
+@Unique(['domain', 'cnpj'])
 export class Company extends BaseEntity {
+  @Column()
+  domain: string;
+
   @Column()
   tradeName: string;
 

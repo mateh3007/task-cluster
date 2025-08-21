@@ -1,12 +1,19 @@
-import { Entity, ManyToOne, Column } from 'typeorm';
+import { Entity, ManyToOne, Column, Unique } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Company } from './company.entity';
 
-@Entity()
+@Entity('accesses')
+@Unique(['email', 'companyId'])
 export class Access extends BaseEntity {
-  @ManyToOne(() => User, (user) => user.accesses)
-  user: User;
+  @Column()
+  email: string;
+
+  @Column()
+  password: string;
+
+  @Column()
+  companyId: number;
 
   @Column()
   userId: number;
@@ -14,6 +21,6 @@ export class Access extends BaseEntity {
   @ManyToOne(() => Company, (company) => company.accesses)
   company: Company;
 
-  @Column()
-  companyId: number;
+  @ManyToOne(() => User, (user) => user.accesses)
+  user: User;
 }
