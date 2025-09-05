@@ -1,3 +1,4 @@
+import { HierarchicalCacheService } from '@application/services/cache/hierarchical-cache.service';
 import { ExceptionsAdapter } from '@domain/adapters/exceptions.adapter';
 import { TaskEntity } from '@domain/entities/task.entity';
 import { CreateTaskUseCaseParams } from '@domain/interfaces/task.interfaces';
@@ -5,16 +6,19 @@ import { IAccessRepository } from '@domain/repositories/access.repository';
 import { ICompanyRepository } from '@domain/repositories/company.repository';
 import { ITaskRepository } from '@domain/repositories/task.repository';
 import { IUserRepository } from '@domain/repositories/user.repository';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 @Injectable()
 export class CreateTaskUseCase {
+  private readonly logger = new Logger(CreateTaskUseCase.name);
+
   constructor(
     private readonly taskRepository: ITaskRepository,
     private readonly userRepository: IUserRepository,
     private readonly companyRepository: ICompanyRepository,
     private readonly accessRepository: IAccessRepository,
     private readonly exceptionsAdapter: ExceptionsAdapter,
+    private readonly hierarchicalCache: HierarchicalCacheService,
   ) {}
 
   async execute(payload: CreateTaskUseCaseParams): Promise<TaskEntity | void> {
@@ -60,6 +64,12 @@ export class CreateTaskUseCase {
         message: 'Error To Create Task',
       });
     }
+
+    // Invalidar caches relacionados após criação bem-sucedida da task
+    await this.hierarchicalCache.invalidateEntityCaches('task', {
+      companyId: companyExists.id,
+      ownerId: userExists.id,
+    });
 
     return task;
   }

@@ -61,7 +61,6 @@ export class TaskRepository implements ITaskRepository {
   async findAllByCompanyAndOwnerId(
     params: GetAllTasksParams,
   ): Promise<TaskEntity[]> {
-    console.log('oi');
     const tasks = await this.repo.find({
       where: {
         companyId: params.companyId,

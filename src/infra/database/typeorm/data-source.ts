@@ -6,7 +6,7 @@ import { Access } from './entities/access.entity';
 import { Address } from './entities/address.entity';
 import { Task } from './entities/task.entity';
 
-const dbPort = parseInt(process.env.DB_PORT || '5432', 10);
+const dbPort = parseInt(process.env.DB_PORT || '5436  ', 10);
 const dbUsername = process.env.DB_USERNAME || 'app_user';
 const dbPassword = process.env.DB_PASSWORD || 'app_pass';
 const dbName = process.env.DB_NAME || 'app_db';

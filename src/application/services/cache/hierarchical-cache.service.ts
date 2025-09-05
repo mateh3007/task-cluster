@@ -8,11 +8,16 @@ export interface HierarchicalCacheConfig {
   cacheKeyPrefix?: string;
 }
 
-export interface CacheStats {
-  memoryHit: boolean;
-  redisHit: boolean;
-  dataCount: number;
-  hasData: boolean;
+export interface CacheInvalidationTarget {
+  identifier: string | number;
+  cacheKeyPrefix: string;
+  description?: string;
+}
+
+export interface EntityCacheContext {
+  companyId?: number;
+  ownerId?: number;
+  [key: string]: any;
 }
 
 @Injectable()
@@ -39,222 +44,155 @@ export class HierarchicalCacheService {
     const cacheKey = this.getCacheKey(identifier, config.cacheKeyPrefix);
     const finalConfig = { ...this.defaultConfig, ...config };
 
-    const memoryStartTime = Date.now();
+    // L1 Memory Cache
     const memoryCachedData = this.memoryCache.get(tenantId, cacheKey) as T;
-    const memoryDuration = Date.now() - memoryStartTime;
-
     if (memoryCachedData && this.isValidData(memoryCachedData)) {
-      const totalDuration = Date.now() - startTime;
-      this.logger.log(
-        `🚀 L1 MEMORY HIT for ${identifier}
-         - Memory lookup: ${memoryDuration}ms
-         - Total duration: ${totalDuration}ms
-         - Data count: ${this.getDataCount(memoryCachedData)}`,
-      );
+      this.logger.log(`🚀 L1 MEMORY HIT for ${identifier}`);
       return memoryCachedData;
     }
+    this.logger.log(`❌ L1 MEMORY MISS for ${identifier}`);
 
-    this.logger.debug(
-      `💭 L1 MEMORY MISS for ${identifier} - Memory lookup: ${memoryDuration}ms`,
-    );
-
-    // 🟡 LEVEL 2: Redis Cache
-    const redisStartTime = Date.now();
+    // L2 Redis Cache
     const redisCachedData = await this.redisCache.get<T>(tenantId, cacheKey);
-    const redisDuration = Date.now() - redisStartTime;
-
     if (redisCachedData && this.isValidData(redisCachedData)) {
-      const memorySetStartTime = Date.now();
       this.memoryCache.set(
         tenantId,
         cacheKey,
         redisCachedData,
         finalConfig.memoryTtl,
       );
-      const memorySetDuration = Date.now() - memorySetStartTime;
-
-      const totalDuration = Date.now() - startTime;
-
-      this.logger.log(
-        `🟡 L2 REDIS HIT for ${identifier}
-         - Memory lookup: ${memoryDuration}ms
-         - Redis lookup: ${redisDuration}ms
-         - Memory set: ${memorySetDuration}ms
-         - Total duration: ${totalDuration}ms
-         - Data count: ${this.getDataCount(redisCachedData)}
-         - Promoted to L1 cache`,
-      );
+      this.logger.log(`🟡 L2 REDIS HIT for ${identifier} - promoted to L1`);
       return redisCachedData;
     }
+    this.logger.log(`❌ L2 REDIS MISS for ${identifier}`);
 
-    this.logger.debug(
-      `🔶 L2 REDIS MISS for ${identifier} - Redis lookup: ${redisDuration}ms`,
-    );
-
+    // L3 Source
     this.logger.log(
-      `💾 L3 SOURCE ACCESS for ${identifier} - All cache levels missed, fetching from source...`,
+      `💾 L3 SOURCE ACCESS for ${identifier} - All cache levels missed`,
     );
-
-    const sourceStartTime = Date.now();
     const data = await fetchFunction();
-    const sourceDuration = Date.now() - sourceStartTime;
 
-    const cacheSetStartTime = Date.now();
-
+    // Cache both levels
     const redisSetPromise = this.redisCache.set(
       tenantId,
       cacheKey,
       data,
       finalConfig.redisTtl,
     );
-
     this.memoryCache.set(tenantId, cacheKey, data, finalConfig.memoryTtl);
-
     await redisSetPromise;
-    const cacheSetDuration = Date.now() - cacheSetStartTime;
-    const totalDuration = Date.now() - startTime;
 
+    const totalDuration = Date.now() - startTime;
     this.logger.log(
-      `📊 L3 SOURCE COMPLETE for ${identifier}:
-       - Memory lookup: ${memoryDuration}ms
-       - Redis lookup: ${redisDuration}ms
-       - Source query: ${sourceDuration}ms
-       - Cache storage: ${cacheSetDuration}ms
-       - Total duration: ${totalDuration}ms
-       - Data count: ${this.getDataCount(data)}
-       - Cached: L1(${finalConfig.memoryTtl / 1000}s) + L2(${finalConfig.redisTtl}s)`,
+      `📊 L3 SOURCE COMPLETE for ${identifier} (${totalDuration}ms)`,
     );
 
     return data;
   }
 
-  async getFromCache<T>(
-    identifier: string | number,
-    cacheKeyPrefix?: string,
-  ): Promise<T | null> {
-    const tenantId = this.getTenantId(identifier);
-    const cacheKey = this.getCacheKey(identifier, cacheKeyPrefix);
+  async invalidateEntityCaches(
+    entityType: string,
+    context: EntityCacheContext,
+  ): Promise<void> {
+    const cacheTargets = this.buildCacheTargetsForEntity(entityType, context);
 
-    const memoryData = this.memoryCache.get(tenantId, cacheKey) as T;
-    if (memoryData && this.isValidData(memoryData)) {
-      this.logger.debug(`🚀 Memory cache hit for ${identifier}`);
-      return memoryData;
-    }
-
-    const redisData = await this.redisCache.get<T>(tenantId, cacheKey);
-    if (redisData && this.isValidData(redisData)) {
-      this.memoryCache.set(
-        tenantId,
-        cacheKey,
-        redisData,
-        this.defaultConfig.memoryTtl,
-      );
+    if (cacheTargets.length === 0) {
       this.logger.debug(
-        `🟡 Redis cache hit for ${identifier} - promoted to memory`,
+        `No cache targets defined for entity type: ${entityType}`,
       );
-      return redisData;
+      return;
     }
 
-    this.logger.debug(`❌ Cache miss for ${identifier}`);
-    return null;
+    await this.invalidateRelatedCaches(
+      cacheTargets,
+      `${entityType} entity caches`,
+    );
   }
 
-  async setInCache<T>(
-    identifier: string | number,
-    data: T,
-    config: HierarchicalCacheConfig = {},
+  private async invalidateRelatedCaches(
+    targets: CacheInvalidationTarget[],
+    context: string,
   ): Promise<void> {
-    const tenantId = this.getTenantId(identifier);
-    const cacheKey = this.getCacheKey(identifier, config.cacheKeyPrefix);
-    const finalConfig = { ...this.defaultConfig, ...config };
-
     const startTime = Date.now();
 
-    const redisSetPromise = this.redisCache.set(
-      tenantId,
-      cacheKey,
-      data,
-      finalConfig.redisTtl,
-    );
-    this.memoryCache.set(tenantId, cacheKey, data, finalConfig.memoryTtl);
-
-    await redisSetPromise;
-    const duration = Date.now() - startTime;
-
     this.logger.log(
-      `💾 Cache SET for ${identifier}:
-       - Duration: ${duration}ms
-       - Data count: ${this.getDataCount(data)}
-       - TTL: L1(${finalConfig.memoryTtl / 1000}s) + L2(${finalConfig.redisTtl}s)`,
+      `🧹 INVALIDATING ${targets.length} cache targets: ${context}`,
+    );
+
+    const invalidationPromises = targets.map(async (target) => {
+      try {
+        await this.invalidateCache(target.identifier, target.cacheKeyPrefix);
+        return { success: true, target };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(
+          `❌ Failed to invalidate cache: ${target.description} - ${errorMessage}`,
+        );
+        return { success: false, target, error: errorMessage };
+      }
+    });
+
+    const results = await Promise.allSettled(invalidationPromises);
+    const successful = results.filter(
+      (result) => result.status === 'fulfilled' && result.value.success,
+    ).length;
+
+    const totalDuration = Date.now() - startTime;
+    this.logger.log(
+      `✅ Cache invalidation complete: ${successful}/${targets.length} successful (${totalDuration}ms)`,
     );
   }
 
-  async invalidateCache(
+  private async invalidateCache(
     identifier: string | number,
     cacheKeyPrefix?: string,
   ): Promise<void> {
-    const startTime = Date.now();
     const tenantId = this.getTenantId(identifier);
     const cacheKey = this.getCacheKey(identifier, cacheKeyPrefix);
 
-    this.logger.log(`🧹 CACHE INVALIDATION started for ${identifier}`);
-
-    const memoryDelStartTime = Date.now();
     this.memoryCache.del(tenantId, cacheKey);
-    const memoryDelDuration = Date.now() - memoryDelStartTime;
-
-    const redisDelStartTime = Date.now();
     await this.redisCache.del(tenantId, cacheKey);
-    const redisDelDuration = Date.now() - redisDelStartTime;
-
-    const totalDuration = Date.now() - startTime;
-
-    this.logger.log(
-      `✅ CACHE INVALIDATION completed for ${identifier}:
-       - Memory clear: ${memoryDelDuration}ms
-       - Redis clear: ${redisDelDuration}ms
-       - Total duration: ${totalDuration}ms`,
-    );
   }
 
-  async warmupCache<T>(
-    identifier: string | number,
-    fetchFunction: () => Promise<T>,
-    config: HierarchicalCacheConfig = {},
-  ): Promise<void> {
-    const startTime = Date.now();
-
-    this.logger.log(`🔥 CACHE WARMUP started for ${identifier}`);
-
-    const data = await this.getOrSet(identifier, fetchFunction, config);
-    const totalDuration = Date.now() - startTime;
-
-    this.logger.log(
-      `🔥 CACHE WARMUP completed for ${identifier}:
-       - Duration: ${totalDuration}ms
-       - Data count: ${this.getDataCount(data)}`,
-    );
+  private buildCacheTargetsForEntity(
+    entityType: string,
+    context: EntityCacheContext,
+  ): CacheInvalidationTarget[] {
+    switch (entityType.toLowerCase()) {
+      case 'task':
+        return this.buildTaskCacheTargets(context);
+      default:
+        this.logger.warn(
+          `Unknown entity type for cache invalidation: ${entityType}`,
+        );
+        return [];
+    }
   }
 
-  async getCacheStats(
-    identifier: string | number,
-    cacheKeyPrefix?: string,
-  ): Promise<CacheStats> {
-    const tenantId = this.getTenantId(identifier);
-    const cacheKey = this.getCacheKey(identifier, cacheKeyPrefix);
+  private buildTaskCacheTargets(
+    context: EntityCacheContext,
+  ): CacheInvalidationTarget[] {
+    const targets: CacheInvalidationTarget[] = [];
+    const { companyId, ownerId } = context;
 
-    const memoryData = this.memoryCache.get(tenantId, cacheKey);
-    const redisData = await this.redisCache.get(tenantId, cacheKey);
+    if (companyId && ownerId) {
+      targets.push({
+        identifier: `${companyId}-${ownerId}`,
+        cacheKeyPrefix: 'tasks-by-owner',
+        description: `Tasks by owner (company: ${companyId}, owner: ${ownerId})`,
+      });
+    }
 
-    const hasMemoryData = !!memoryData && this.isValidData(memoryData);
-    const hasRedisData = !!redisData && this.isValidData(redisData);
+    if (companyId) {
+      targets.push({
+        identifier: companyId,
+        cacheKeyPrefix: 'all-tasks',
+        description: `All tasks for company ${companyId}`,
+      });
+    }
 
-    return {
-      memoryHit: hasMemoryData,
-      redisHit: hasRedisData,
-      dataCount: this.getDataCount(memoryData || redisData),
-      hasData: hasMemoryData || hasRedisData,
-    };
+    return targets;
   }
 
   private getTenantId(identifier: string | number): string {
@@ -266,25 +204,13 @@ export class HierarchicalCacheService {
     return `${cachePrefix}-${identifier}`;
   }
 
-  private getDataCount(data: any): number {
-    if (data === null || data === undefined) {
-      return 0;
-    }
-    if (Array.isArray(data)) {
-      return data.length;
-    }
-    return 1;
-  }
-
-  private isValidData(data: any): boolean {
+  private isValidData(data: unknown): boolean {
     if (data === null || data === undefined) {
       return false;
     }
-
     if (Array.isArray(data)) {
       return data.length > 0;
     }
-
     return true;
   }
 }
