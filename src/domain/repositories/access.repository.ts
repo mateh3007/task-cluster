@@ -6,4 +6,8 @@ export abstract class IAccessRepository {
     email: string,
     companyId: number,
   ): Promise<AccessEntity | void>;
+  abstract findByUserIdAndCompanyId(
+    userId: number,
+    companyId: number,
+  ): Promise<AccessEntity | void>;
 }

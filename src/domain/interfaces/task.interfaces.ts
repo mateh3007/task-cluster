@@ -9,3 +9,18 @@ export interface CreateTaskParams {
   durationInDays: number;
   status: TaskStatusEnum;
 }
+
+export interface CreateTaskUseCaseParams {
+  ownerId?: number;
+  companyId?: number;
+  name: string;
+  description: string;
+  expectedDurationInDays: number;
+  durationInDays: number;
+  status: TaskStatusEnum;
+}
+
+export interface GetAllTasksParams {
+  companyId: number;
+  ownerId: number;
+}

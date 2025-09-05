@@ -31,7 +31,7 @@ export class User extends BaseEntity {
   @Column()
   password: string;
 
-  @OneToMany(() => Task, (task) => task.user)
+  @OneToMany(() => Task, (task) => task.owner)
   tasks: Task[];
 
   @OneToMany(() => Access, (access) => access.user)
