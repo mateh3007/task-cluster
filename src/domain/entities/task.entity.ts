@@ -2,7 +2,8 @@ import { TaskStatusEnum } from '../enums/task-status.enum';
 import { BaseEntity } from './base.entity';
 
 export interface TaskEntity extends BaseEntity {
-  userId: number;
+  ownerId: number;
+  companyId: number;
   name: string;
   description: string;
   expectedDurationInDays: number;
