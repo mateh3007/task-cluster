@@ -1,5 +1,8 @@
 import { TaskEntity } from '@domain/entities/task.entity';
-import { CreateTaskParams } from '@domain/interfaces/task.interfaces';
+import {
+  CreateTaskParams,
+  GetAllTasksParams,
+} from '@domain/interfaces/task.interfaces';
 
 export abstract class ITaskRepository {
   abstract createTask(params: CreateTaskParams): Promise<TaskEntity | void>;
@@ -7,4 +10,7 @@ export abstract class ITaskRepository {
   abstract findByUuid(uuid: string): Promise<TaskEntity | void>;
   abstract findAllByOwnerId(id: number): Promise<TaskEntity[]>;
   abstract findAllByCompanyId(id: number): Promise<TaskEntity[]>;
+  abstract findAllByCompanyAndOwnerId(
+    params: GetAllTasksParams,
+  ): Promise<TaskEntity[]>;
 }

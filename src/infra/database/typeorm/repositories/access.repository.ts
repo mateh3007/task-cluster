@@ -12,6 +12,15 @@ export class AccessRepository implements IAccessRepository {
     this.repo = this.dataSource.getRepository(Access);
   }
 
+  async findByUserIdAndCompanyId(
+    userId: number,
+    companyId: number,
+  ): Promise<AccessEntity | void> {
+    const access = await this.repo.findOne({ where: { userId, companyId } });
+    if (!access) return;
+    return access;
+  }
+
   async findByEmailAndCompanyId(
     email: string,
     companyId: number,

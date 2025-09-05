@@ -3,7 +3,10 @@ import { DataSource, Repository } from 'typeorm';
 import { Task } from '../entities/task.entity';
 import { ITaskRepository } from '@domain/repositories/task.repository';
 import { TaskEntity } from '@domain/entities/task.entity';
-import { CreateTaskParams } from '@domain/interfaces/task.interfaces';
+import {
+  CreateTaskParams,
+  GetAllTasksParams,
+} from '@domain/interfaces/task.interfaces';
 
 @Injectable()
 export class TaskRepository implements ITaskRepository {
@@ -49,6 +52,20 @@ export class TaskRepository implements ITaskRepository {
     const tasks = await this.repo.find({
       where: {
         companyId: id,
+      },
+    });
+
+    return tasks;
+  }
+
+  async findAllByCompanyAndOwnerId(
+    params: GetAllTasksParams,
+  ): Promise<TaskEntity[]> {
+    console.log('oi');
+    const tasks = await this.repo.find({
+      where: {
+        companyId: params.companyId,
+        ownerId: params.ownerId,
       },
     });
 
